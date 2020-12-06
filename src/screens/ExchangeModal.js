@@ -68,8 +68,20 @@ const InnerWrapper = styled(Centered).attrs({
   background-color: ${({ theme: { colors } }) => colors.transparent};
 `;
 
-const DEFAULT_DETAILS_INPUT = 100;
-const DEFAULT_DETAILS_INPUT_ETH = 0.1;
+const getDefaultGasLimit = type => {
+  switch (type) {
+    case ExchangeModalTypes.deposit:
+      return ethUnits.basic_deposit;
+    case ExchangeModalTypes.withdrawal:
+      return ethUnits.basic_withdrawal;
+    case ExchangeModalTypes.addLiquidity:
+      return ethUnits.basic_uniswap_add_liquidity;
+    case ExchangeModalTypes.removeLiquidity:
+      return ethUnits.basic_uniswap_remove_liquidity;
+    default:
+      return ethUnits.basic_swap;
+  }
+};
 
 export default function ExchangeModal({
   createRap,
@@ -104,11 +116,7 @@ export default function ExchangeModal({
   const isWithdrawal = type === ExchangeModalTypes.withdrawal;
   const isSavings = isDeposit || isWithdrawal;
 
-  const defaultGasLimit = isDeposit
-    ? ethUnits.basic_deposit
-    : isWithdrawal
-    ? ethUnits.basic_withdrawal
-    : ethUnits.basic_swap;
+  const defaultGasLimit = getDefaultGasLimit(type);
 
   const {
     selectedGasPrice,
@@ -354,23 +362,7 @@ export default function ExchangeModal({
     ]
   );
 
-  const shouldDisplayRealData =
-    !isSavings &&
-    inputCurrency?.address &&
-    outputCurrency?.address &&
-    tradeDetails &&
-    outputAmount;
-
   const navigateToSwapDetailsModal = useCallback(() => {
-    if (!shouldDisplayRealData) {
-      // Updating temporarily to display something on the sheet
-      updateNativeAmount(
-        nativeCurrency === 'ETH'
-          ? DEFAULT_DETAILS_INPUT_ETH
-          : DEFAULT_DETAILS_INPUT,
-        true
-      );
-    }
     android && Keyboard.dismiss();
     const lastFocusedInputHandleTemporary = lastFocusedInputHandle.current;
     android && (lastFocusedInputHandle.current = null);
@@ -403,15 +395,12 @@ export default function ExchangeModal({
     confirmButtonProps,
     inputFieldRef,
     lastFocusedInputHandle,
-    nativeCurrency,
     nativeFieldRef,
     navigate,
     outputCurrency,
     outputFieldRef,
     setParams,
-    shouldDisplayRealData,
     type,
-    updateNativeAmount,
   ]);
 
   const showConfirmButton = isSavings
