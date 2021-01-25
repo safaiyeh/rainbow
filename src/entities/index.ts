@@ -7,4 +7,5 @@ export type {
   RainbowToken,
   UniswapCurrency,
 } from './tokens';
+export type { TransactionParams } from './transactions';
 export type { ZeroExQuote, ZeroExPayload } from './zeroEx';
