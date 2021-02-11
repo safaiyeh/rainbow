@@ -103,7 +103,7 @@ export default function ExchangeModal({
   const prevSelectedGasPrice = usePrevious(selectedGasPrice);
   const { maxInputBalance, updateMaxInputBalance } = useMaxInputBalance();
 
-  const { areTradeDetailsValid, slippage, tradeDetails } = useSwapDetails();
+  const { areTradeDetailsValid, slippage } = useSwapDetails();
 
   const [isAuthorizing, setIsAuthorizing] = useState(false);
 
@@ -200,13 +200,7 @@ export default function ExchangeModal({
 
   const updateGasLimit = useCallback(async () => {
     try {
-      const gasLimit = await estimateRap({
-        inputAmount,
-        inputCurrency,
-        outputAmount,
-        outputCurrency,
-        tradeDetails,
-      });
+      const gasLimit = await estimateRap();
       if (inputCurrency && outputCurrency) {
         updateTxFee(gasLimit);
       }
@@ -216,11 +210,8 @@ export default function ExchangeModal({
   }, [
     defaultGasLimit,
     estimateRap,
-    inputAmount,
     inputCurrency,
-    outputAmount,
     outputCurrency,
-    tradeDetails,
     updateTxFee,
   ]);
 
@@ -386,18 +377,11 @@ export default function ExchangeModal({
           setParams({ focused: false });
           navigate(Routes.PROFILE_SCREEN);
         };
-        const rap = await createRap({
-          callback,
-          inputAmount: isWithdrawal && isMax ? cTokenBalance : inputAmount,
-          inputCurrency,
-          isMax,
-          outputAmount,
-          outputCurrency,
-          selectedGasPrice,
-          tradeDetails,
-        });
+        const rap = await createRap();
+        // inputAmount: isWithdrawal && isMax ? cTokenBalance : inputAmount, // TODO JIN
         logger.log('[exchange - handle submit] rap', rap);
         await executeRap(wallet, rap);
+        callback();
         logger.log('[exchange - handle submit] executed rap!');
         analytics.track(`Completed ${type}`, {
           defaultInputAsset: defaultInputAsset?.symbol,
@@ -417,14 +401,6 @@ export default function ExchangeModal({
     outputCurrency,
     slippage,
     createRap,
-    isWithdrawal,
-    isMax,
-    cTokenBalance,
-    inputAmount,
-    inputCurrency,
-    outputAmount,
-    selectedGasPrice,
-    tradeDetails,
     setParams,
     navigate,
   ]);
