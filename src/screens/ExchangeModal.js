@@ -45,7 +45,7 @@ import {
 } from '@rainbow-me/hooks';
 import { loadWallet } from '@rainbow-me/model/wallet';
 import { useNavigation } from '@rainbow-me/navigation/Navigation';
-import { executeRap } from '@rainbow-me/raps';
+import { executeRap, findRapEstimationByType } from '@rainbow-me/raps';
 import { multicallClearState } from '@rainbow-me/redux/multicall';
 import { swapClearState } from '@rainbow-me/redux/swap';
 import { ethUnits } from '@rainbow-me/references';
@@ -57,18 +57,37 @@ import logger from 'logger';
 const AnimatedFloatingPanels = Animated.createAnimatedComponent(FloatingPanels);
 const Wrapper = ios ? KeyboardFixedOpenLayout : Fragment;
 
+const getInputHeaderTitle = (type, defaultInputAsset) => {
+  switch (type) {
+    case ExchangeModalTypes.deposit:
+      return 'Deposit';
+    case ExchangeModalTypes.withdrawal:
+      return `Withdraw ${defaultInputAsset.symbol}`;
+    default:
+      return 'Swap';
+  }
+};
+
+const getShowOutputField = type => {
+  switch (type) {
+    case ExchangeModalTypes.deposit:
+    case ExchangeModalTypes.withdrawal:
+      return false;
+    default:
+      return true;
+  }
+};
+
 export default function ExchangeModal({
-  createRap,
-  cTokenBalance,
   defaultInputAsset,
-  estimateRap,
-  inputHeaderTitle,
-  showOutputField,
-  supplyBalanceUnderlying,
+  typeSpecificParams,
   testID,
   type,
-  underlyingPrice,
 }) {
+  const { underlyingPrice, supplyBalanceUnderlying } = typeSpecificParams;
+  const inputHeaderTitle = getInputHeaderTitle(type, defaultInputAsset);
+  const showOutputField = getShowOutputField(type);
+
   const {
     navigate,
     setParams,
@@ -81,6 +100,10 @@ export default function ExchangeModal({
 
   const isDeposit = type === ExchangeModalTypes.deposit;
   const isWithdrawal = type === ExchangeModalTypes.withdrawal;
+
+  const estimateRap = useMemo(() => {
+    return findRapEstimationByType(type);
+  }, [type]);
 
   const defaultGasLimit = isDeposit
     ? ethUnits.basic_deposit
@@ -377,10 +400,8 @@ export default function ExchangeModal({
           setParams({ focused: false });
           navigate(Routes.PROFILE_SCREEN);
         };
-        const rap = await createRap();
-        // inputAmount: isWithdrawal && isMax ? cTokenBalance : inputAmount, // TODO JIN
-        logger.log('[exchange - handle submit] rap', rap);
-        await executeRap(wallet, rap);
+        logger.log('[exchange - handle submit] rap');
+        await executeRap(wallet, type);
         callback();
         logger.log('[exchange - handle submit] executed rap!');
         analytics.track(`Completed ${type}`, {
@@ -400,7 +421,6 @@ export default function ExchangeModal({
     isSlippageWarningVisible,
     outputCurrency,
     slippage,
-    createRap,
     setParams,
     navigate,
   ]);

@@ -4,10 +4,6 @@ import ExchangeModalTypes from '../helpers/exchangeModalTypes';
 import { ExchangeNavigatorFactory } from '../navigation/ExchangeModalNavigator';
 import useStatusBarManaging from '../navigation/useStatusBarManaging';
 import ExchangeModal from './ExchangeModal';
-import {
-  createSwapAndDepositCompoundRap,
-  estimateSwapAndDepositCompound,
-} from '@rainbow-me/raps';
 
 const DepositModal = ({ navigation, ...props }) => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -17,14 +13,10 @@ const DepositModal = ({ navigation, ...props }) => {
   const underlyingPrice = params?.underlyingPrice;
   return (
     <ExchangeModal
-      createRap={createSwapAndDepositCompoundRap}
       defaultInputAsset={defaultInputAsset}
-      estimateRap={estimateSwapAndDepositCompound}
-      inputHeaderTitle="Deposit"
       navigation={navigation}
-      showOutputField={false}
       type={ExchangeModalTypes.deposit}
-      underlyingPrice={underlyingPrice}
+      typeSpecificParams={{ underlyingPrice }}
       {...props}
     />
   );
