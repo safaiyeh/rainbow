@@ -41,7 +41,7 @@ import {
 } from '@rainbow-me/hooks';
 import { loadWallet } from '@rainbow-me/model/wallet';
 import { useNavigation } from '@rainbow-me/navigation';
-import { executeRap } from '@rainbow-me/raps/common';
+import { executeRap, findRapEstimationByType } from '@rainbow-me/raps';
 import { multicallClearState } from '@rainbow-me/redux/multicall';
 import { swapClearState, updateSwapTypeDetails } from '@rainbow-me/redux/swap';
 import { ethUnits } from '@rainbow-me/references';
@@ -68,30 +68,43 @@ const InnerWrapper = styled(Centered).attrs({
   background-color: ${({ theme: { colors } }) => colors.transparent};
 `;
 
-const DEFAULT_DETAILS_INPUT = 100;
-const DEFAULT_DETAILS_INPUT_ETH = 0.1;
+const getInputHeaderTitle = (type, defaultInputAsset) => {
+  switch (type) {
+    case ExchangeModalTypes.deposit:
+      return 'Deposit';
+    case ExchangeModalTypes.withdrawal:
+      return `Withdraw ${defaultInputAsset.symbol}`;
+    default:
+      return 'Swap';
+  }
+};
+
+const getShowOutputField = type => {
+  switch (type) {
+    case ExchangeModalTypes.deposit:
+    case ExchangeModalTypes.withdrawal:
+      return false;
+    default:
+      return true;
+  }
+};
 
 export default function ExchangeModal({
-  createRap,
-  cTokenBalance,
   defaultInputAsset,
   defaultOutputAsset,
-  estimateRap,
-  showOutputField,
-  supplyBalanceUnderlying,
   testID,
-  title = 'Swap',
   type,
+  typeSpecificParams,
 }) {
   const dispatch = useDispatch();
 
   useLayoutEffect(() => {
-    const typeSpecificParameters = {
-      cTokenBalance,
-      supplyBalanceUnderlying,
-    };
-    dispatch(updateSwapTypeDetails(type, typeSpecificParameters));
-  }, [cTokenBalance, dispatch, supplyBalanceUnderlying, type]);
+    dispatch(updateSwapTypeDetails(type, typeSpecificParams));
+  }, [dispatch, type, typeSpecificParams]);
+
+  const { underlyingPrice } = typeSpecificParams;
+  const title = getInputHeaderTitle(type, defaultInputAsset);
+  const showOutputField = getShowOutputField(type);
 
   const {
     navigate,
@@ -104,6 +117,10 @@ export default function ExchangeModal({
   const isWithdrawal = type === ExchangeModalTypes.withdrawal;
   const isSavings = isDeposit || isWithdrawal;
 
+  const estimateRap = useMemo(() => {
+    return findRapEstimationByType(type);
+  }, [type]);
+
   const defaultGasLimit = isDeposit
     ? ethUnits.basic_deposit
     : isWithdrawal
@@ -111,7 +128,6 @@ export default function ExchangeModal({
     : ethUnits.basic_swap;
 
   const {
-    selectedGasPrice,
     startPollingGasPrices,
     stopPollingGasPrices,
     updateDefaultGasLimit,
@@ -150,7 +166,6 @@ export default function ExchangeModal({
   } = useSwapInputRefs();
 
   const {
-    isMax,
     updateInputAmount,
     updateMaxInputAmount,
     updateNativeAmount,
@@ -280,9 +295,8 @@ export default function ExchangeModal({
           setParams({ focused: false });
           navigate(Routes.PROFILE_SCREEN);
         };
-        const rap = await createRap();
-        logger.log('[exchange - handle submit] rap', rap);
-        await executeRap(wallet, rap);
+        logger.log('[exchange - handle submit] rap');
+        await executeRap(wallet, type);
         callback();
         logger.log('[exchange - handle submit] executed rap!');
         analytics.track(`Completed ${type}`, {
@@ -297,14 +311,12 @@ export default function ExchangeModal({
       }
     });
   }, [
-    createRap,
     defaultInputAsset,
     isHighPriceImpact,
     navigate,
     outputCurrency,
     priceImpactPercentDisplay,
     setParams,
-    tradeDetails,
     type,
   ]);
 
@@ -313,7 +325,6 @@ export default function ExchangeModal({
       disabled: !Number(inputAmount),
       inputAmount,
       isAuthorizing,
-      isDeposit,
       isHighPriceImpact,
       onSubmit: handleSubmit,
       tradeDetails,
@@ -323,7 +334,6 @@ export default function ExchangeModal({
       handleSubmit,
       inputAmount,
       isAuthorizing,
-      isDeposit,
       isHighPriceImpact,
       testID,
       tradeDetails,
@@ -331,23 +341,7 @@ export default function ExchangeModal({
     ]
   );
 
-  const shouldDisplayRealData =
-    !isSavings &&
-    inputCurrency?.address &&
-    outputCurrency?.address &&
-    tradeDetails &&
-    outputAmount;
-
   const navigateToSwapDetailsModal = useCallback(() => {
-    if (!shouldDisplayRealData) {
-      // Updating temporarily to display something on the sheet
-      updateNativeAmount(
-        nativeCurrency === 'ETH'
-          ? DEFAULT_DETAILS_INPUT_ETH
-          : DEFAULT_DETAILS_INPUT,
-        true
-      );
-    }
     android && Keyboard.dismiss();
     const lastFocusedInputHandleTemporary = lastFocusedInputHandle.current;
     android && (lastFocusedInputHandle.current = null);
@@ -380,15 +374,12 @@ export default function ExchangeModal({
     confirmButtonProps,
     inputFieldRef,
     lastFocusedInputHandle,
-    nativeCurrency,
     nativeFieldRef,
     navigate,
     outputCurrency,
     outputFieldRef,
     setParams,
-    shouldDisplayRealData,
     type,
-    updateNativeAmount,
   ]);
 
   const showConfirmButton = isSavings
